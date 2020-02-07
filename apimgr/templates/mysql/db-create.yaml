@@ -1,0 +1,37 @@
+{{- if eq .Values.mysql.enabled true }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-create-mysql-apigw
+  namespace: {{ .Values.namespace }}
+  labels:  
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+spec:
+ template:
+  spec:
+   containers:
+    - name: dbcreate-mysql-analytics
+      image: {{ .Values.mysql.imageName }}:{{ .Values.mysql.imageTag }}
+      command: 
+      - "sh" 
+      - "-c" 
+      args:
+      - "SQL_COMMANDS=$(cat /tmp/mysql/analytics.sql); mysql -u{{ .Values.mysql.username }} -p{{ .Values.mysql.password }} {{ .Values.mysql.databaseName }} -h {{ .Values.mysql.hostname }} -e \"${SQL_COMMANDS} \""
+      volumeMounts:
+      - name: config-volume
+        mountPath: /tmp/mysql
+{{- if eq .Values.mysql.enabled true }}
+   initContainers:
+   - name: init-mysql
+     image: {{ .Values.global.initImageTag }}
+     command: ['sh', '-c', 'until nc -w 3 -v {{ .Values.mysql.hostname }} {{ .Values.mysql.port }}; do echo waiting for mysql; sleep 2; done;']
+{{- end }}
+   volumes:
+    - name: config-volume
+      configMap:
+        # Provide the name of the ConfigMap containing the files you want
+        # to add to the container
+        name: analytics
+   restartPolicy: Never
+{{- end }}
